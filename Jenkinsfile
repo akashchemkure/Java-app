@@ -5,20 +5,7 @@ pipeline {
         maven 'Maven 3.9.16'
     }
 
-    environment {
-        IMAGE_NAME = "java-app"
-        IMAGE_TAG = "latest"
-    }
-
     stages {
-
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                    credentialsId: 'github-pat',
-                    url: 'https://github.com/akashchemkure/java-app.git'
-            }
-        }
 
         stage('Build') {
             steps {
@@ -30,8 +17,8 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     sh '''
-                        mvn sonar:sonar \
-                        -Dsonar.projectKey=java-app
+                    mvn sonar:sonar \
+                    -Dsonar.projectKey=java-app
                     '''
                 }
             }
@@ -39,39 +26,37 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                '''
+                sh 'docker build -t java-app:latest .'
             }
         }
-        
+
         stage('Deploy Container') {
-           steps {
-               sh '''
-                   docker rm -f java-app-container || true
+            steps {
+                sh '''
+                docker rm -f java-app-container || true
 
-                   docker run -d \
-                   --name java-app-container \
-                   -p 8080:8080 \
-                    java-app:latest
+                docker run -d \
+                  --name java-app-container \
+                  -p 8080:8080 \
+                  java-app:latest
                 '''
             }
         }
-        stage('Show Docker Images') {
+
+        stage('Verify Deployment') {
             steps {
-                sh 'docker images'
+                sh 'docker ps'
             }
         }
-
     }
 
     post {
         success {
-            echo 'Pipeline executed successfully!'
+            echo "Application deployed successfully!"
         }
 
         failure {
-            echo 'Pipeline failed.'
+            echo "Pipeline failed."
         }
     }
 }
