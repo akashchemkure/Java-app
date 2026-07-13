@@ -44,7 +44,19 @@ pipeline {
                 '''
             }
         }
+        
+        stage('Deploy Container') {
+           steps {
+               sh '''
+                   docker rm -f java-app-container || true
 
+                   docker run -d \
+                   --name java-app-container \
+                   -p 8080:8080 \
+                    java-app:latest
+                '''
+            }
+        }
         stage('Show Docker Images') {
             steps {
                 sh 'docker images'
