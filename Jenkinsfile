@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'YOUR_DOCKERHUB_USERNAME/java-app'
+        IMAGE_NAME = 'akashchemkure97/java-app'
         CONTAINER_NAME = 'java-app-container'
     }
 
