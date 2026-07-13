@@ -6,20 +6,11 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'akashchemkure97/java-app'
+        IMAGE_NAME = "akashchemkure97/java-app"
         IMAGE_TAG = "${BUILD_NUMBER}"
-        CONTAINER_NAME = 'java-app-container'
     }
 
     stages {
-
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                    credentialsId: 'github-pat',
-                    url: 'https://github.com/akashchemkure/java-app.git'
-            }
-        }
 
         stage('Build') {
             steps {
@@ -41,8 +32,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                docker build -t $IMAGE_NAME:$IMAGE_TAG .
-                docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+                docker build \
+                -t $IMAGE_NAME:$IMAGE_TAG \
+                -t $IMAGE_NAME:latest .
                 '''
             }
         }
@@ -50,25 +42,20 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh '''
-                docker run --rm \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                aquasec/trivy:latest image \
+                trivy image --exit-code 0 \
                 --severity HIGH,CRITICAL \
-                --exit-code 0 \
-                $IMAGE_NAME:$IMAGE_TAG
+                $IMAGE_NAME:latest
                 '''
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )
-                ]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
 
                     sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
@@ -82,15 +69,16 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                docker rm -f $CONTAINER_NAME || true
+                export KUBECONFIG=/var/jenkins_home/.kube/config
 
-                docker run -d \
-                  --name $CONTAINER_NAME \
-                  -p 8080:8080 \
-                  $IMAGE_NAME:$IMAGE_TAG
+                kubectl apply -f k8s/
+
+                kubectl rollout restart deployment/java-app
+
+                kubectl rollout status deployment/java-app
                 '''
             }
         }
@@ -98,8 +86,11 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 sh '''
-                sleep 10
-                curl -I http://localhost:8080
+                export KUBECONFIG=/var/jenkins_home/.kube/config
+
+                kubectl get pods
+
+                kubectl get svc
                 '''
             }
         }
@@ -108,7 +99,7 @@ pipeline {
     post {
 
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'Pipeline executed successfully.'
         }
 
         failure {
@@ -116,7 +107,7 @@ pipeline {
         }
 
         always {
-            sh 'docker image prune -f || true'
+            cleanWs()
         }
     }
 }
