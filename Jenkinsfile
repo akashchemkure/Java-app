@@ -40,6 +40,21 @@ pipeline {
             }
         }
 
+
+        stage('Trivy Scan') {
+            steps {
+                sh '''
+                      docker run --rm \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      -v $HOME/.cache:/root/.cache \
+                       aquasec/trivy:latest image \
+                      --severity HIGH,CRITICAL \
+                      --exit-code 0 \
+                      ${IMAGE_NAME}:latest
+                   '''
+           }
+       }
+
         stage('Push Docker Image') {
             steps {
                 withCredentials([usernamePassword(
